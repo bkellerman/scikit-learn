@@ -184,17 +184,36 @@ class _MultiOutputEstimator(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta
             else:
                 routed_params = Bunch(estimator=Bunch(partial_fit=Bunch()))
 
-        self.estimators_ = Parallel(n_jobs=self.n_jobs)(
-            delayed(_partial_fit_estimator)(
-                self.estimators_[i] if not first_time else self.estimator,
-                X,
-                y[:, i],
-                classes[i] if classes is not None else None,
-                partial_fit_params=routed_params.estimator.partial_fit,
-                first_time=first_time,
+        if "eval_set" in routed_params.estimator.fit:
+            X_eval = routed_params.estimator.fit["eval_set"][0]
+            y_eval = routed_params.estimator.fit["eval_set"][1]
+            routed_params.estimator.fit.pop("eval_set")
+
+            self.estimators_ = Parallel(n_jobs=self.n_jobs)(
+                delayed(_partial_fit_estimator)(
+                    self.estimators_[i] if not first_time else self.estimator,
+                    X,
+                    y[:, i].flatten(),
+                    classes[i] if classes is not None else None,
+                    eval_set=(X_val, y_val[:, i].flatten()),
+                    partial_fit_params=routed_params.estimator.partial_fit,
+                    first_time=first_time,
+                )
+                for i in range(y.shape[1])
             )
-            for i in range(y.shape[1])
-        )
+
+        else:
+            self.estimators_ = Parallel(n_jobs=self.n_jobs)(
+                delayed(_partial_fit_estimator)(
+                    self.estimators_[i] if not first_time else self.estimator,
+                    X,
+                    y[:, i].flatten(),
+                    classes[i] if classes is not None else None,
+                    partial_fit_params=routed_params.estimator.partial_fit,
+                    first_time=first_time,
+                )
+                for i in range(y.shape[1])
+            )
 
         if first_time and hasattr(self.estimators_[0], "n_features_in_"):
             self.n_features_in_ = self.estimators_[0].n_features_in_
@@ -269,12 +288,25 @@ class _MultiOutputEstimator(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta
             if sample_weight is not None:
                 routed_params.estimator.fit["sample_weight"] = sample_weight
 
-        self.estimators_ = Parallel(n_jobs=self.n_jobs)(
-            delayed(_fit_estimator)(
-                self.estimator, X, y[:, i], **routed_params.estimator.fit
+        if "eval_set" in routed_params.estimator.fit:
+            X_eval = routed_params.estimator.fit["eval_set"][0]
+            y_eval = routed_params.estimator.fit["eval_set"][1]
+            routed_params.estimator.fit.pop("eval_set")
+            self.estimators_ = Parallel(n_jobs=self.n_jobs)(
+                delayed(_fit_estimator)(
+                    self.estimator, X, y[:, i].flatten(), eval_set=(X_val, y_val[:, i].flatten()),
+                                                                    **routed_params.estimator.fit
+                )
+                for i in range(y.shape[1])
             )
-            for i in range(y.shape[1])
-        )
+        else:
+            
+            self.estimators_ = Parallel(n_jobs=self.n_jobs)(
+                delayed(_fit_estimator)(
+                    self.estimator, X, y[:, i].flatten(), **routed_params.estimator.fit
+                )
+                for i in range(y.shape[1])
+            )
 
         if hasattr(self.estimators_[0], "n_features_in_"):
             self.n_features_in_ = self.estimators_[0].n_features_in_
