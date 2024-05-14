@@ -185,8 +185,8 @@ class _MultiOutputEstimator(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta
                 routed_params = Bunch(estimator=Bunch(partial_fit=Bunch()))
 
         if "eval_set" in routed_params.estimator.fit:
-            X_eval = routed_params.estimator.fit["eval_set"][0]
-            y_eval = routed_params.estimator.fit["eval_set"][1]
+            X_val = routed_params.estimator.fit["eval_set"][0]
+            y_val = routed_params.estimator.fit["eval_set"][1]
             routed_params.estimator.fit.pop("eval_set")
 
             self.estimators_ = Parallel(n_jobs=self.n_jobs)(
@@ -289,8 +289,8 @@ class _MultiOutputEstimator(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta
                 routed_params.estimator.fit["sample_weight"] = sample_weight
 
         if "eval_set" in routed_params.estimator.fit:
-            X_eval = routed_params.estimator.fit["eval_set"][0]
-            y_eval = routed_params.estimator.fit["eval_set"][1]
+            X_val = routed_params.estimator.fit["eval_set"][0]
+            y_val = routed_params.estimator.fit["eval_set"][1]
             routed_params.estimator.fit.pop("eval_set")
             self.estimators_ = Parallel(n_jobs=self.n_jobs)(
                 delayed(_fit_estimator)(
